@@ -19,6 +19,7 @@ private:
   FileManager* fileManager;
   BufPageManager* bufPageManager;
   std::vector<FileInfo> fileInfo;
+  NotThatSillyHashMap* ntshm;
 public:
   RecordManager(FileManager* fm,BufPageManager* bpm){
     fileManager=fm;
@@ -26,6 +27,7 @@ public:
     fileInfos.clear();
   }
   void createFile(char* name,int recordLength){
+    ntshm=new NotThatSillyHashMap();
     fileManager->createFile(name);
     int theIndex;
     fileManager->openFile(name,theIndex);
@@ -52,7 +54,7 @@ public:
     theFileInfo.index=ret;
     theFileInfo.name=name;
     fileInfo.push_back(theFileInfo);
-    
+    ntshm->insert(ret,fileInfo.size()-1);
     return ret;
   }
   bool closeFile(int index){
