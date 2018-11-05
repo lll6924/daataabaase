@@ -159,8 +159,8 @@ public:
   bool closeFile(int index){
     saveFile(index);
     int theIndex=ntshm->getdata(index);
-    printf("%d %d %d %d %d\n",fileInfo[theIndex].pageNumber,fileInfo[theIndex].recordLength,fileInfo[theIndex].recordNumber,fileInfo[theIndex].index,fileInfo[theIndex].recordIndex);
-    fileInfo[theIndex]=*fileInfo.end();
+    //printf("%d %d %d %d %d\n",fileInfo[theIndex].pageNumber,fileInfo[theIndex].recordLength,fileInfo[theIndex].recordNumber,fileInfo[theIndex].index,fileInfo[theIndex].recordIndex);
+    fileInfo[theIndex]=*(fileInfo.end()-1);
     ntshm->replace(fileInfo[theIndex].index,theIndex);
     fileInfo.pop_back();
     ntshm->deleteit(index);
@@ -301,9 +301,19 @@ public:
     }
     return ans;
   }
+  void outpmsgs(){
+    printf("%d\n",fileInfo.size());
+    for(int i=0;i<fileInfo.size();i++){
+      printf("%d %d %d %d %d\n",fileInfo[i].pageNumber,fileInfo[i].recordLength,fileInfo[i].recordNumber,fileInfo[i].index,fileInfo[i].recordIndex);
+
+    }
+  }
   ~RecordManager(){
-    for(int i=0;i<fileInfo.size();i++)
-      closeFile(fileInfo[i].index);
+      //printf("%d\n",fileInfo.size());
+
+    while(fileInfo.size()>0){
+      closeFile(fileInfo[0].index);
+    }
   }
 };
 
