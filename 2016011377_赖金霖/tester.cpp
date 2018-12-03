@@ -2,6 +2,7 @@
 #include "fileio/FileManager.h"
 #include "utils/pagedef.h"
 #include "RecordManager.h"
+#include "BPlusTree.h"
 #include <iostream>
 #include <sstream>
 
