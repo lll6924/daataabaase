@@ -12,6 +12,7 @@
 
 struct FileInfo{
   int pageNumber,recordLength,recordNumber,index,recordIndex;
+  std::vector<BTree*> indexes;
   char* name;
 };
 
@@ -294,7 +295,7 @@ public:
     }
     return ret;
   }
-  uint parseIndex(const char* ch){
+  uint parseIndex(const char* ch){//不是索引
     uint ans=0;
     for(int i=0;i<4;i++){
       ans=ans*256+(unsigned char)ch[3-i];
@@ -307,6 +308,54 @@ public:
       printf("%d %d %d %d %d\n",fileInfo[i].pageNumber,fileInfo[i].recordLength,fileInfo[i].recordNumber,fileInfo[i].index,fileInfo[i].recordIndex);
 
     }
+  }
+  int createIndex(int fileIndex, int begin, int end){
+    if(begin%4!=0||end%4!=0||end-begin!=4){
+      printf("Invalid place!");
+      return -1;
+    }
+    int theIndex=ntshm->getdata(fileIndex);
+    FileInfo& info=fileInfo[theIndex];
+    fileInfo[theIndex].indexes.push_back(new BTree);
+    int indexIndex=fileInfo[theIndex].indexes.size()-1;
+    for(int i=0;i<info.recordNumber;i++){
+      int page=i/recordsPerPage+1;
+      int pageIndex;
+      BufType page1=bufPageManager->getPage(fileIndex,page,pageIndex);
+      int place=i%recordsPerPage*info.recordLength;
+      uint toinsert=parseIndex(page1+place/4+1+begin/4);
+      fileInfo[theIndex].indexes[indexIndex]->insertdata(toinsert,i);
+    }
+    return indexIndex;
+  }
+  int deleteIndex(int fileIndex, int indexIndex){
+    int theIndex=ntshm->getdata(fileIndex);
+    if(fileInfo[theIndex].indexes[indexIndex]!=NULL){
+      delete fileInfo[theIndex].indexes[indexIndex];
+      fileInfo[theIndex].indexes[indexIndex]=NULL;
+    }
+  }
+  std::vector<char*> findbyIndex(int fileIndex, int indexIndex, int begin, int end){
+    std::vector<char*> ret;
+    ret.clear();
+    int theIndex=ntshm->getdata(fileIndex);
+    FileInfo& info=fileInfo[theIndex];
+    if(indexIndex<0||indexIndex>=fileInfo[theIndex].indexes.size()||fileInfo[theIndex].indexes[indexIndex]==NULL){
+      printf("Invalid indexId!");
+      return ret;
+    }
+    std::vector<int> indexes=fileInfo[theIndex].indexes[indexIndex]->finddata(begin,end);
+    for(int i=0;i<indexes.size();i++){
+      int page=indexes[i]/recordsPerPage+1;
+      int pageIndex;
+      BufType page1=bufPageManager->getPage(fileIndex,page,pageIndex);
+      int place=indexes[i]%recordsPerPage*info.recordLength;
+      char* cpout=new char[info.recordLength+1];
+      cpout[info.recordLength]='\0';
+      memcpy(cpout,page1+place/4,info.recordLength);
+      ret.push_back(cpout);
+    }
+    return ret;
   }
   ~RecordManager(){
       //printf("%d\n",fileInfo.size());
