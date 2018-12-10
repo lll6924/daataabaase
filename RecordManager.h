@@ -4,6 +4,7 @@
 #include "fileio/FileManager.h"
 #include "utils/pagedef.h"
 #include "NotThatSillyHashMap.h"
+#include "BPlusTree.h"
 #include <iostream>
 #include <cstdio>
 #include <vector>
@@ -90,6 +91,12 @@ private:
   std::vector<FileInfo> fileInfo;
   NotThatSillyHashMap* ntshm;
 public:
+  FileManager* getFileManager(){
+    return fileManager;
+  }
+  BufPageManager* getBufPageManager(){
+    return bufPageManager;
+  }
   RecordManager(){
   	MyBitMap::initConst();
   	fileManager = new FileManager();
@@ -318,17 +325,18 @@ public:
     FileInfo& info=fileInfo[theIndex];
     fileInfo[theIndex].indexes.push_back(new BTree);
     int indexIndex=fileInfo[theIndex].indexes.size()-1;
+    int recordsPerPage=PAGE_SIZE/info.recordLength;
     for(int i=0;i<info.recordNumber;i++){
       int page=i/recordsPerPage+1;
       int pageIndex;
       BufType page1=bufPageManager->getPage(fileIndex,page,pageIndex);
       int place=i%recordsPerPage*info.recordLength;
-      uint toinsert=parseIndex(page1+place/4+1+begin/4);
+      uint toinsert=*(page1+place/4+1+begin/4);
       fileInfo[theIndex].indexes[indexIndex]->insertdata(toinsert,i);
     }
     return indexIndex;
   }
-  int deleteIndex(int fileIndex, int indexIndex){
+  void deleteIndex(int fileIndex, int indexIndex){
     int theIndex=ntshm->getdata(fileIndex);
     if(fileInfo[theIndex].indexes[indexIndex]!=NULL){
       delete fileInfo[theIndex].indexes[indexIndex];
@@ -340,6 +348,7 @@ public:
     ret.clear();
     int theIndex=ntshm->getdata(fileIndex);
     FileInfo& info=fileInfo[theIndex];
+    int recordsPerPage=PAGE_SIZE/info.recordLength;
     if(indexIndex<0||indexIndex>=fileInfo[theIndex].indexes.size()||fileInfo[theIndex].indexes[indexIndex]==NULL){
       printf("Invalid indexId!");
       return ret;
