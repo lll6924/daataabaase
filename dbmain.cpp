@@ -181,7 +181,7 @@ void inst(){
         break;
       }
       if(words[0]=="show"&&words[1]=="database"){
-        std::string configfile=database + "/.config";
+        std::string configfile=words[2] + "/.config";
         int theIndex;
         fileManager->openFile(configfile.c_str(),theIndex);
         int pageIndex;
