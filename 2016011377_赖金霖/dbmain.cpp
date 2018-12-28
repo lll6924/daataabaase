@@ -425,7 +425,6 @@ void inst(){
         }
       }
     }
-    
     printf("Invalid instruction!\n");
   }while(0);
 }
