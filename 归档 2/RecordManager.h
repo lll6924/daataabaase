@@ -84,12 +84,6 @@ class RegexFilter:public RecordFilter{
   }
 };
 
-class TransparentFilter:public RecordFilter{
-  bool check(uint* tocheck,const char* provided,int len1,int len2){
-    return true;
-  }
-};
-
 class RecordManager{
 private:
   FileManager* fileManager;
@@ -307,11 +301,6 @@ public:
       }
     }
     return ret;
-  }
-  
-  int getRecordLength(int fileIndex){
-    int theIndex=ntshm->getdata(fileIndex);
-    return fileInfo[theIndex].recordLength;
   }
   uint parseIndex(const char* ch){//不是索引
     uint ans=0;

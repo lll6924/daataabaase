@@ -10,15 +10,31 @@
 
 #include <string>
 #include <vector>
+#include <sstream>
+#include <iostream>
+
+struct Type{
+  static const int _FLOAT=0;
+  static const int _DATE=1;
+  static const int _INT=2;
+  static const int _CHAR=3;
+  int typeId;
+  int len;
+};
 
 class Value{
 public:
   static const int _INT=0;
   static const int _STRING=1;
   static const int _NULL=2;
+  static const int _FLOAT=3;
+  static const int _DATE=4;
   int type;
   int intValue;
   std::string stringValue;
+  float floatValue;
+  int dateValue;
+  char* toString(Type);
 };
 
 struct Set{
@@ -30,6 +46,8 @@ struct Column{
   bool hastable;
   std::string table;
   std::string column;
+  int place,left,right;
+  Type type;
 };
 
 struct Selector{
@@ -66,21 +84,13 @@ public:
   Expr expr;
 };
 
-struct Type{
-  static const int _FLOAT=0;
-  static const int _DATE=1;
-  static const int _INT=2;
-  static const int _CHAR=3;
-  int typeId;
-  int len;
-};
-
 class Field{
 public:
   static const int column=0;
   static const int primarykey=1;
   static const int foreignkey=2;
-  int type;
+  int type,left,right;
+  bool isprimarykey;
   //type=column
   bool Nullable;
   std::string colName;
