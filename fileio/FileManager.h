@@ -54,11 +54,13 @@ public:
 		off_t offset = pageID;
 		offset = (offset << PAGE_SIZE_IDX);
 		off_t error = lseek(f, offset, SEEK_SET);
+  printf("%d %d %d\n",f,error,offset);
 		if (error != offset) {
 			return -1;
 		}
 		BufType b = buf + off;
 		error = write(f, (void*) b, PAGE_SIZE);
+  printf("%d\n",error);
 		return 0;
 	}
 	/*

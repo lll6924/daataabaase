@@ -17,7 +17,7 @@ extern "C"
 std::string getdatabase();
 
 %}
-%token DATABASE DATABASES TABLE TABLES SHOW CREATE DROP USE PRIMARY KEY NOT NULL_ INSERT INTO VALUES DELETE FROM WHERE UPDATE SET SELECT IS INT VARCHAR DESC REFERENCES INDEX AND DATE FLOAT FOREIGN
+%token DATABASE DATABASES TABLE TABLES SHOW CREATE DROP USE PRIMARY KEY NOT NULL_ INSERT INTO VALUES DELETE FROM WHERE UPDATE SET SELECT IS INT VARCHAR DESC REFERENCES INDEX AND DATE FLOAT FOREIGN EXIT
 %token ';' '(' ')' ',' '.' '='  '<' '>' '*' '-'
 %token NOT_EQUAL MORE_OR_EQUAL LESS_OR_EQUAL
 %token VALUE_STRING VALUE_INT IDENTIFIER
@@ -52,6 +52,10 @@ stmt  : sysStmt ';'
 sysStmt  : SHOW DATABASES
       {
         $$.handler=new ShowDatabases();
+      }
+         | EXIT
+      {
+        $$.handler=new Exiter();
       }
          ;
 
@@ -369,7 +373,7 @@ cols : col
      | cols ',' col
       {
         $$.columns.swap($1.columns);
-        $$.columns.push_back($1.column);
+        $$.columns.push_back($3.column);
       }
      ;
 

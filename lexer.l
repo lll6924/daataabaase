@@ -58,6 +58,7 @@ VALUE_STRING '[^']*'
 "DATE" {return DATE;}
 "FLOAT" {return FLOAT;}
 "FOREIGN" {return FOREIGN;}
+"EXIT" {return EXIT;}
 
 "<>" {return NOT_EQUAL;}
 "<=" {return LESS_OR_EQUAL;}

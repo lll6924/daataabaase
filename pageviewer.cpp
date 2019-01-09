@@ -28,7 +28,7 @@ int main() {
   FILE* f=fopen(st.c_str(),"r");
   while(true){
     unsigned char cc;
-    for(int i=0;i<8192;i++){
+    for(int i=0;i<1024;i++){
       fscanf(f,"%c",&cc);
       prhex(cc%16);
       prhex(cc/16);

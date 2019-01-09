@@ -210,4 +210,10 @@ public:
   DropIndex(std::string tbname, std::string colname);
 };
 
+class Exiter:public Handler{
+public:
+  virtual void accept();
+  Exiter();
+};
+
 #endif /* handler_h */

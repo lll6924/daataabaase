@@ -70,12 +70,13 @@
      DATE = 286,
      FLOAT = 287,
      FOREIGN = 288,
-     NOT_EQUAL = 289,
-     MORE_OR_EQUAL = 290,
-     LESS_OR_EQUAL = 291,
-     VALUE_STRING = 292,
-     VALUE_INT = 293,
-     IDENTIFIER = 294
+     EXIT = 289,
+     NOT_EQUAL = 290,
+     MORE_OR_EQUAL = 291,
+     LESS_OR_EQUAL = 292,
+     VALUE_STRING = 293,
+     VALUE_INT = 294,
+     IDENTIFIER = 295
    };
 #endif
 /* Tokens.  */
@@ -110,12 +111,13 @@
 #define DATE 286
 #define FLOAT 287
 #define FOREIGN 288
-#define NOT_EQUAL 289
-#define MORE_OR_EQUAL 290
-#define LESS_OR_EQUAL 291
-#define VALUE_STRING 292
-#define VALUE_INT 293
-#define IDENTIFIER 294
+#define EXIT 289
+#define NOT_EQUAL 290
+#define MORE_OR_EQUAL 291
+#define LESS_OR_EQUAL 292
+#define VALUE_STRING 293
+#define VALUE_INT 294
+#define IDENTIFIER 295
 
 
 

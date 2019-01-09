@@ -37,6 +37,7 @@ class EqualFilter:public RecordFilter{
     for(int i=0;i<len2;i++){
       uint tmp=*(tocheck+i/4);
       char tocomp=getintchar(tmp,i%4);
+      printf("%u %u\n",tocomp,*(provided+i));
       if(*(provided+i)!=tocomp)
         return false;
     }
@@ -192,22 +193,29 @@ public:
       }
     }
     fileInfo.push_back(theFileInfo);
+      //printf("%d %d\n",ret,theFileInfo.recordLength);
+
     return ret;
   }
   void saveFile(int index){
     int theIndex=ntshm->getdata(index);
     FileInfo& info=fileInfo[theIndex];
     int pageIndex;
-    BufType page0=bufPageManager->getPage(theIndex,0,pageIndex);
+    BufType page0=bufPageManager->getPage(index,0,pageIndex);
     bufPageManager->markDirty(pageIndex);
     info=fileInfo[theIndex];
     page0[0]=info.pageNumber;
     page0[1]=info.recordLength;
     page0[2]=info.recordNumber;
     page0[3]=info.recordIndex;
-    for(int i=0;i<info.pageNumber;i++){
+    bufPageManager->writeBack(pageIndex);
+    bufPageManager->release(pageIndex);
+    printf("saved %d %d %d %d\n",page0[0],page0[1],page0[2],page0[3]);
+    for(int i=1;i<info.pageNumber;i++){
+      printf("saving page %d\n",i);
       int pageIndex;
       bufPageManager->getPage(index,i,pageIndex);
+      bufPageManager->markDirty(pageIndex);
       bufPageManager->writeBack(pageIndex);
       bufPageManager->release(pageIndex);
     }
@@ -236,6 +244,7 @@ public:
           bufPageManager->writeBack(pageIndex);
           bufPageManager->release(pageIndex);
         }
+        bufPageManager->release(pageIndex);
         fileManager->closeFile(theIndex);
       }
   }
@@ -249,6 +258,10 @@ public:
     ntshm->deleteit(index);
     fileManager->closeFile(index);
     return true;
+  }
+  void closeAll(){
+    while(fileInfo.size())
+      closeFile(fileInfo[0].index);
   }
   int insertRecord(int fileIndex,const char* record){
     int theIndex=ntshm->getdata(fileIndex);
@@ -284,7 +297,7 @@ public:
 
     info.recordNumber++;
     page1[place/4]=info.recordIndex;
-
+    //bufPageManager->release(pageIndex);
     return info.recordIndex++;
   }
   int findRecord(int fileIndex,int recordIndex){
@@ -299,8 +312,10 @@ public:
       int place=i%recordsPerPage*info.recordLength;
       if(page1[place/4]==recordIndex){
         find=i;
+        bufPageManager->release(pageIndex);
         break;
       }
+      bufPageManager->release(pageIndex);
     }
     return find;
   }
@@ -320,6 +335,8 @@ public:
       int todeleteplace=find%recordsPerPage*info.recordLength;
       int tailplace=(info.recordNumber-1)%recordsPerPage*info.recordLength;
       memcpy(todelete+todeleteplace/4,tail+tailplace/4,info.recordLength);
+      //bufPageManager->release(pageIndex1);
+      //bufPageManager->release(pageIndex2);
       for(int i=0;i<info.indexes.size();i++){
         if(info.indexes[i]!=NULL){
           info.indexes[i]->deletedata(find);
@@ -348,13 +365,13 @@ public:
       BufType page1=bufPageManager->getPage(fileIndex,page,pageIndex);
       int place=find%recordsPerPage*info.recordLength;
       memcpy(page1+place/4+1,newrecord,info.recordLength-4);
-
+     // bufPageManager->release(pageIndex);
         //printf("%s\n",page1+place/4+1);
       for(int i=0;i<info.indexes.size();i++){
         if(info.indexes[i]!=NULL){
-          printf("%d %d\n",find,i);
+         // printf("%d %d\n",find,i);
           info.indexes[i]->deletedata(find);
-          printf("%d\n",*((int*)(newrecord+i*4)));
+          //printf("%d\n",*((int*)(newrecord+i*4)));
           info.indexes[i]->insertdata(*((int*)(newrecord+i*4)),find);
         }
       }
@@ -386,14 +403,14 @@ public:
       //printf("%d\n",page1+place/4+1);
       //printf("%s\n",page1+place/4+1);
 
-      if(checker->check(page1+place/4+1+begin/4,provided,end-begin,len)){
+      if(checker->check(page1+place/4+1+begin/4,provided,end-begin,end-begin)){
         char* cpout=new char[info.recordLength+1];
         cpout[info.recordLength]='\0';
         memcpy(cpout,page1+place/4,info.recordLength);
         //printf("%s\n",cpout);
         ret.push_back(cpout);
       }
-
+      bufPageManager->release(pageIndex);
     }
     return ret;
   }
@@ -435,7 +452,7 @@ public:
       BufType page1=bufPageManager->getPage(fileIndex,page,pageIndex);
       int place=i%recordsPerPage*info.recordLength;
       uint toinsert=*(page1+place/4+1+begin/4);
-
+      bufPageManager->release(pageIndex);
       //printf("%u %d\n",toinsert,i);
       info.indexes[indexIndex]->insertdata(toinsert,i);
     }
@@ -472,7 +489,7 @@ public:
       char* cpout=new char[info.recordLength+1];
       cpout[info.recordLength]='\0';
       memcpy(cpout,page1+place/4,info.recordLength);
-
+      bufPageManager->release(pageIndex);
       ret.push_back(cpout);
     }
     return ret;
