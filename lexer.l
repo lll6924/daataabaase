@@ -20,12 +20,12 @@ WHITESPACE ([ \t]+)
 
 IDENTIFIER [A-Za-z][_0-9A-Za-z]*
 VALUE_INT [0-9]+
-VALUE_STRING ’[^’]*’
+VALUE_STRING '[^']*'
 
 %%
 
 {WHITESPACE}
-{NEWLINE} mylineno++;
+{NEWLINE} {mylineno++;}
 
 "DATABASE" {return DATABASE;}
 "DATABASES" {return DATABASES;}

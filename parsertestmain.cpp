@@ -12,7 +12,7 @@ std::string getdatabase();
 int main() {
   init();
   while(1){
-    printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
+    //printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
     yyparse();
   }
 	return 0;

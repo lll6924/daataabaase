@@ -1532,7 +1532,7 @@ yyreduce:
 #line 31 "Parser.y"
     {
         (yyvsp[(1) - (2)]).handler->accept();
-        printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
+        //printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
       }
     break;
 
@@ -1540,7 +1540,7 @@ yyreduce:
 #line 36 "Parser.y"
     {
         (yyvsp[(1) - (2)]).handler->accept();
-        printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
+        //printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
       }
     break;
 
@@ -1548,7 +1548,7 @@ yyreduce:
 #line 41 "Parser.y"
     {
         (yyvsp[(1) - (2)]).handler->accept();
-        printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
+        //printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
       }
     break;
 
@@ -1556,7 +1556,7 @@ yyreduce:
 #line 46 "Parser.y"
     {
         (yyvsp[(1) - (2)]).handler->accept();
-        printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
+        //printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
       }
     break;
 

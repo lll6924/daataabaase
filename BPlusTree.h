@@ -51,6 +51,20 @@ struct BTree{
     root->parent=NULL;
     root->len=0;
   }
+  void _tobuffers(BTreeNode* root,std::vector<uint*>& buffers){
+    buffers.push_back(root->tobuffer());
+    if(root->isleaf)return;
+    for(int i=0;i<root->len;i++)
+      _tobuffers(root->sons[i],buffers);
+  }
+  std::vector<uint*> tobuffers(){
+    time=1;
+    doit1(root);
+    std::vector<uint*> toreturn;
+    toreturn.clear();
+    _tobuffers(root,toreturn);
+    return toreturn;
+  }
   void insertdata(int place,int data){
     while(places.size()<data+1){
       Record r;
@@ -222,11 +236,14 @@ struct BTree{
     return ret;
   }
   void deletedata(int data){
+    //printf("%d %d\n",data,places.size());
     BTreeNode* now=places[data].place;
     int order=places[data].order;
     //printf("%d\n",now->maxvalues[order]);
     while(true){
+      //printf("123\n");
       for(int i=order;i<now->len-1;i++){
+        //printf("%d\n",i);
         now->sons[i]=now->sons[i+1];
         now->maxvalues[i]=now->maxvalues[i+1];
         now->data[i]=now->data[i+1];
@@ -237,6 +254,7 @@ struct BTree{
           now->maxvalues[i]=now->sons[i]->maxvalues[now->sons[i]->len-1];
         }
       }
+      //printf("after\n");
       now->len--;
       if(now->len>=maxsons/2)break;
       if(now==root&&now->isleaf==false&&now->len<=1){
@@ -247,6 +265,8 @@ struct BTree{
       }
       BTreeNode* merge1;
       BTreeNode* merge2;
+      //printf("in\n");
+      //printf("%d\n",now->parent->len);
       if(now->left!=NULL&&now->left->parent==now->parent){
         //printf("mergeleft");
         BTreeNode* helper=now->left;
@@ -282,7 +302,7 @@ struct BTree{
           merge2=now;
         }
       }else if(now->right!=NULL&&now->right->parent==now->parent){
-             // printf("mergeright");
+              //printf("mergeright");
 
         BTreeNode* helper=now->right;
         if(helper->len>maxsons/2){
@@ -347,6 +367,7 @@ struct BTree{
         }
       delete merge1;
     }
+    //printf("Afterwards..\n");
     while(now!=NULL&&now->parent!=NULL){
       now=now->parent;
       for(int i=0;i<now->len;i++)
@@ -389,8 +410,20 @@ struct BTree{
     doit1(root);
     doit2(root);
   }
-  void buildtree(std::vector<uint*> inp){
+  void buildtree(std::vector<uint*>& inp){
     BTreeNode* buf=new BTreeNode[inp.size()+1];
+    //printf("%d\n",inp.size());
+    int maxdata=0;
+    for(int i=0;i<inp.size();i++)
+      if(inp[i][0]==1){
+       // printf("%d\n",inp[i][2]);
+        for(int j=0;j<inp[i][2];j++){
+          if(inp[i][6+j+2*inp[i][2]]>maxdata)maxdata=inp[i][6+j+2*inp[i][2]];
+         // printf("%d %d %d\n",inp[i][6+j],inp[i][6+j+inp[i][2]],inp[i][6+j+2*inp[i][2]]);
+        }
+      }
+    //printf("  %d\n",maxdata);
+    places.resize(maxdata+1);
     for(int i=0;i<inp.size();i++){
       int u=inp[i][1];
       buf[u].iden=u;
@@ -401,13 +434,16 @@ struct BTree{
       if(inp[i][4]==0)buf[u].right=NULL;
       else buf[u].right=&buf[inp[i][4]];
       if(inp[i][5]==0)buf[u].parent=NULL;
-      if(buf[u].parent==NULL)root=&buf[u];
       else buf[u].parent=&buf[inp[i][5]];
+      if(buf[u].parent==NULL)root=&buf[u];
       for(int j=0;j<buf[u].len;j++){
         if(inp[i][6+j]==0)buf[u].sons[j]=NULL;
         else buf[u].sons[j]=&buf[inp[i][6+j]];
         buf[u].maxvalues[j]=inp[i][6+j+buf[u].len];
         buf[u].data[j]=inp[i][6+j+2*buf[u].len];
+        int dt=buf[u].data[j];
+        places[dt].order=j;
+        places[dt].place=&buf[u];
       }
     }
   }

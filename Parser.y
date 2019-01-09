@@ -30,22 +30,22 @@ program  :
 stmt  : sysStmt ';'
       {
         $1.handler->accept();
-        printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
+        //printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
       }
       | dbStmt ';'
       {
         $1.handler->accept();
-        printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
+        //printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
       }
       | tbStmt ';'
       {
         $1.handler->accept();
-        printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
+        //printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
       }
       | idxStmt ';'
       {
         $1.handler->accept();
-        printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
+        //printf("%s->",getdatabase().length()?getdatabase().c_str():"NULL");
       }
       ;
 
