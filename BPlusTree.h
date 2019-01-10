@@ -235,6 +235,26 @@ struct BTree{
     }
     return ret;
   }
+  int findexact(int value){//return data
+    BTreeNode* now=root;
+    while(now->isleaf==false){
+      int t1=0,t2=now->len-1;
+      while(t1<t2){
+        int mid=(t1+t2)/2;
+        if(now->maxvalues[mid]>=value)t2=mid;
+          else t1=mid+1;
+      }
+      now=now->sons[t1];
+    }
+    int t1=0,t2=now->len-1;
+    while(t1<t2){
+      int mid=(t1+t2)/2;
+      if(now->maxvalues[mid]>=value)t2=mid;
+        else t1=mid+1;
+    }
+    if(now->maxvalues[t1]!=value)return -1;
+    return now->data[t1];
+  }
   void deletedata(int data){
     //printf("%d %d\n",data,places.size());
     BTreeNode* now=places[data].place;

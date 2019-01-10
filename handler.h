@@ -40,6 +40,8 @@ public:
 struct Set{
   std::string column;
   Value value;
+  int left,right;
+  Type type;
 };
 
 struct Column{
@@ -82,6 +84,7 @@ public:
   Column left;
   int Operator;
   Expr expr;
+  bool used;
 };
 
 class Field{

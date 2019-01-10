@@ -161,7 +161,7 @@ public:
     //printf("%u %u %u %u\n",page0[0],page0[1],page0[2],page0[3]);
     //for(int i=0;i<100;i++)
       //printf("%d %u\n",i,*(((unsigned char*)page0)+i));
-    for(int i=0;i<page0[1]/4-1;i++){
+    for(int i=0;i<page0[1]/4;i++){
       //printf("%d\n",i);
       theFileInfo.indexes.push_back(NULL);
       fstream file;
@@ -194,7 +194,7 @@ public:
     }
     fileInfo.push_back(theFileInfo);
       //printf("%d %d\n",ret,theFileInfo.recordLength);
-
+    if(theFileInfo.indexes[0]==NULL)createIndex(ret,0,4);
     return ret;
   }
   void saveFile(int index){
@@ -275,7 +275,10 @@ public:
     }*/
     for(int i=0;i<info.indexes.size();i++){
       //printf("%d %d\n",i,(int)(info.indexes[i]==NULL));
-      if(info.indexes[i]!=NULL)info.indexes[i]->insertdata(*((int*)(record+i*4)),info.recordNumber);
+      if(info.indexes[i]!=NULL){
+        if(i==0)info.indexes[i]->insertdata(info.recordIndex,info.recordNumber);
+          else info.indexes[i]->insertdata(*((int*)(record+i*4-4)),info.recordNumber);
+      }
     }
     int recordsPerPage=PAGE_SIZE/info.recordLength;
     int page=(info.recordNumber)/recordsPerPage+1;
@@ -302,7 +305,8 @@ public:
   }
   int findRecord(int fileIndex,int recordIndex){
     int theIndex=ntshm->getdata(fileIndex);
-    FileInfo& info=fileInfo[theIndex];
+    return fileInfo[theIndex].indexes[0]->findexact(recordIndex);
+    /*FileInfo& info=fileInfo[theIndex];
     int recordsPerPage=PAGE_SIZE/info.recordLength;
     int find=-1;
     for(int i=0;i<info.recordNumber;i++){
@@ -317,7 +321,7 @@ public:
       }
       bufPageManager->release(pageIndex);
     }
-    return find;
+    return find;*/
   }
   bool deleteRecord(int fileIndex,int recordIndex){
     int theIndex=ntshm->getdata(fileIndex);
@@ -372,7 +376,8 @@ public:
          // printf("%d %d\n",find,i);
           info.indexes[i]->deletedata(find);
           //printf("%d\n",*((int*)(newrecord+i*4)));
-          info.indexes[i]->insertdata(*((int*)(newrecord+i*4)),find);
+          if(i==0)info.indexes[i]->insertdata(recordIndex,find);
+            else info.indexes[i]->insertdata(*((int*)(newrecord+i*4-4)),find);
         }
       }
     }
@@ -451,7 +456,7 @@ public:
       int pageIndex;
       BufType page1=bufPageManager->getPage(fileIndex,page,pageIndex);
       int place=i%recordsPerPage*info.recordLength;
-      uint toinsert=*(page1+place/4+1+begin/4);
+      uint toinsert=*(page1+place/4+begin/4);
       bufPageManager->release(pageIndex);
       //printf("%u %d\n",toinsert,i);
       info.indexes[indexIndex]->insertdata(toinsert,i);

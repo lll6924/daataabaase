@@ -926,11 +926,203 @@ void InsertValue::accept(){
 }
 
 void DeleteValues::accept(){
-  //std::vector<>
+  for(int i=0;i<wheres.size();i++){
+    if((wheres[i].left.hastable&&wheres[i].left.table!=tbname)||(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::COL&&wheres[i].expr.column.hastable&&wheres[i].expr.column.table!=tbname)){
+      printf("Invalid column!\n");
+      return;
+    }
+    Field field;
+    if(!getColumn(tbname,wheres[i].left.column,field)){
+      printf("Unfound column!\n");
+      return;
+    }
+    wheres[i].left.left=field.left;
+    wheres[i].left.right=field.right;
+    wheres[i].left.type=field.thetype;
+    if(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::COL){
+      if(!getColumn(tbname,wheres[i].expr.column.column,field)){
+        printf("Unfound column!\n");
+        return;
+      }
+      wheres[i].expr.column.left=field.left;
+      wheres[i].expr.column.right=field.right;
+      wheres[i].expr.column.type=field.thetype;
+      if(!cancompare(wheres[i].left.type.typeId,field.thetype.typeId)){
+        printf("Invalid operation!\n");
+        return;
+      }
+    }else if(wheres[i].type==WhereItem::OPERATION&&!canassign(field.thetype.typeId,wheres[i].expr.value.type)){
+      printf("Invalid operation!\n");
+      return;
+    }
+  }
+  int ref=-1;
+  for(int j=0;j<globaltables.size();j++){
+    if(tbname==globaltables[j].name)ref=globaltables[j].fileid;
+  }
+  if(ref==-1){
+    printf("Unknown table!\n");
+    return;
+  }
+  printf("Deleted:\n");
+  int len=rm->getRecordLength(ref);
+  std::vector<int> todelete;
+  todelete.clear();
+  //printf("%d\n",len);
+  std::vector<char*> gt=rm->filterRecord(ref,0,0,NULL,new TransparentFilter());
+  for(int i=0;i<gt.size();i++){
+    bool valid=true;
+    for(int j=0;j<wheres.size();j++){
+      //printf("%d\n",wheres[i].type);
+      if(wheres[j].type==WhereItem::OPERATION){
+        //printf("Checking operation\n");
+        int place=wheres[j].left.place;
+        Value left=extractValue(gt[i],wheres[j].left.left+4,wheres[j].left.right+4,wheres[j].left.type);
+        Value right=wheres[j].expr.value;
+        if(wheres[j].expr.type==Expr::COL){
+          right=extractValue(gt[i],wheres[j].expr.column.left+4,wheres[j].expr.column.right+4,wheres[j].expr.column.type);
+        }
+        if(!doOperation(left,wheres[j].Operator,right)){
+          valid=false;
+          break;
+        }
+      }
+      if(wheres[j].type==WhereItem::ISNULL){
+        int place=wheres[j].left.place;
+        Value left=extractValue(gt[i],wheres[j].left.left+4,wheres[j].left.right+4,wheres[j].left.type);
+        if(left.type!=Value::_NULL){
+          valid=false;
+          break;
+        }
+      }
+      if(wheres[j].type==WhereItem::ISNOTNULL){
+        int place=wheres[j].left.place;
+        Value left=extractValue(gt[i],wheres[j].left.left+4,wheres[j].left.right+4,wheres[j].left.type);
+        if(left.type==Value::_NULL){
+          valid=false;
+          break;
+        }
+      }
+    }
+    if(valid){
+      printf("%d\n",rm->parseIndex(gt[i]));
+      todelete.push_back(rm->parseIndex(gt[i]));
+    }
+  }
+  for(int i=0;i<todelete.size();i++)
+    rm->deleteRecord(ref,todelete[i]);
+  rm->saveFile(ref);
 }
 
 void UpdateValues::accept(){
-
+  for(int i=0;i<wheres.size();i++){
+    if((wheres[i].left.hastable&&wheres[i].left.table!=tbname)||(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::COL&&wheres[i].expr.column.hastable&&wheres[i].expr.column.table!=tbname)){
+      printf("Invalid column!\n");
+      return;
+    }
+    Field field;
+    if(!getColumn(tbname,wheres[i].left.column,field)){
+      printf("Unfound column!\n");
+      return;
+    }
+    wheres[i].left.left=field.left;
+    wheres[i].left.right=field.right;
+    wheres[i].left.type=field.thetype;
+    if(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::COL){
+      if(!getColumn(tbname,wheres[i].expr.column.column,field)){
+        printf("Unfound column!\n");
+        return;
+      }
+      wheres[i].expr.column.left=field.left;
+      wheres[i].expr.column.right=field.right;
+      wheres[i].expr.column.type=field.thetype;
+      if(!cancompare(wheres[i].left.type.typeId,field.thetype.typeId)){
+        printf("Invalid operation!\n");
+        return;
+      }
+    }else if(wheres[i].type==WhereItem::OPERATION&&!canassign(field.thetype.typeId,wheres[i].expr.value.type)){
+      printf("Invalid operation!\n");
+      return;
+    }
+  }
+  for(int i=0;i<sets.size();i++){
+    Field field;
+    if(!getColumn(tbname,sets[i].column,field)){
+      printf("Unfound column in setclause!\n");
+      return;
+    }
+    sets[i].left=field.left;
+    sets[i].right=field.right;
+    sets[i].type=field.thetype;
+    if(!canassign(field.thetype.typeId,sets[i].value.type)){
+      printf("Invalid operation!\n");
+      return;
+    }
+  }
+  int ref=-1;
+  for(int j=0;j<globaltables.size();j++){
+    if(tbname==globaltables[j].name)ref=globaltables[j].fileid;
+  }
+  if(ref==-1){
+    printf("Unknown table!\n");
+    return;
+  }
+  printf("Renewed:\n");
+  int len=rm->getRecordLength(ref);
+  std::vector<int> toupdate;
+  toupdate.clear();
+  std::vector<char*> torenew;
+  torenew.clear();
+  //printf("%d\n",len);
+  std::vector<char*> gt=rm->filterRecord(ref,0,0,NULL,new TransparentFilter());
+  for(int i=0;i<gt.size();i++){
+    bool valid=true;
+    for(int j=0;j<wheres.size();j++){
+      //printf("%d\n",wheres[i].type);
+      if(wheres[j].type==WhereItem::OPERATION){
+        //printf("Checking operation\n");
+        int place=wheres[j].left.place;
+        Value left=extractValue(gt[i],wheres[j].left.left+4,wheres[j].left.right+4,wheres[j].left.type);
+        Value right=wheres[j].expr.value;
+        if(wheres[j].expr.type==Expr::COL){
+          right=extractValue(gt[i],wheres[j].expr.column.left+4,wheres[j].expr.column.right+4,wheres[j].expr.column.type);
+        }
+        if(!doOperation(left,wheres[j].Operator,right)){
+          valid=false;
+          break;
+        }
+      }
+      if(wheres[j].type==WhereItem::ISNULL){
+        int place=wheres[j].left.place;
+        Value left=extractValue(gt[i],wheres[j].left.left+4,wheres[j].left.right+4,wheres[j].left.type);
+        if(left.type!=Value::_NULL){
+          valid=false;
+          break;
+        }
+      }
+      if(wheres[j].type==WhereItem::ISNOTNULL){
+        int place=wheres[j].left.place;
+        Value left=extractValue(gt[i],wheres[j].left.left+4,wheres[j].left.right+4,wheres[j].left.type);
+        if(left.type==Value::_NULL){
+          valid=false;
+          break;
+        }
+      }
+    }
+    if(valid){
+      printf("%d\n",rm->parseIndex(gt[i]));
+      toupdate.push_back(rm->parseIndex(gt[i]));
+      torenew.push_back(gt[i]);
+    }
+  }
+  for(int i=0;i<toupdate.size();i++){
+    for(int j=0;j<sets.size();j++){
+      char* dt=sets[j].value.toString(sets[j].type);
+      memcpy(torenew[i]+4+sets[j].left,dt,sets[j].right-sets[j].left);
+    }
+    rm->renewRecord(ref,toupdate[i],torenew[i]+4);
+  }
+  rm->saveFile(ref);
 }
 
 void SelectValues::accept(){
@@ -968,10 +1160,10 @@ void SelectValues::accept(){
   }else{
     selector.columns.clear();
     for(int i=0;i<tables.size();i++){
-      printf("%d\n",i);//use dlfjadf;select * from tb1 where a is null;
+      //printf("%d\n",i);//use dlfjadf;select * from tb1 where a is null;
       std::vector<Field> columns=getColumns(tables[i]);
       for(int j=0;j<columns.size();j++){
-        printf(" %d\n",j);
+        //printf(" %d\n",j);
         Column col;
         col.hastable=true;
         col.table=tables[i];
@@ -1039,7 +1231,7 @@ void SelectValues::accept(){
       return;
     }
   }
-  printf("finish where pre\n");
+ // printf("finish where pre\n");
   std::vector<std::vector<char*> > cols;
   cols.clear();
   std::vector<int> ns;
@@ -1052,7 +1244,7 @@ void SelectValues::accept(){
     int ref=-1;
     for(int j=0;j<globaltables.size();j++){
       if(tables[i]==globaltables[j].name)ref=globaltables[j].fileid;
-      printf("%s %d\n",globaltables[j].name.c_str(),globaltables[j].fileid);
+      //printf("%s %d\n",globaltables[j].name.c_str(),globaltables[j].fileid);
     }
     if(ref==-1){
       printf("Unknown table!\n");
@@ -1149,7 +1341,7 @@ void CreateIndex::accept(){
 }
 
 void DropIndex::accept(){
-
+  
 }
 
 void Exiter::accept(){
