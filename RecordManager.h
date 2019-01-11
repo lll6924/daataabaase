@@ -37,7 +37,7 @@ class EqualFilter:public RecordFilter{
     for(int i=0;i<len2;i++){
       uint tmp=*(tocheck+i/4);
       char tocomp=getintchar(tmp,i%4);
-      printf("%u %u\n",tocomp,*(provided+i));
+      //printf("%u %u\n",tocomp,*(provided+i));
       if(*(provided+i)!=tocomp)
         return false;
     }
@@ -135,7 +135,6 @@ public:
     //printf("%d %d %d %d\n",page0[0],page0[1],page0[2],page0[3]);
 
     bufPageManager->writeBack(pageIndex);
-    bufPageManager->release(pageIndex);
     fileManager->closeFile(theIndex);
     std::string rmname=name;
     rmname.append(".*");
@@ -158,10 +157,12 @@ public:
     theFileInfo.name=new char[strlen(name)+1];
     strcpy(theFileInfo.name,name);
     ntshm->insert(ret,fileInfo.size());
-    //printf("%u %u %u %u\n",page0[0],page0[1],page0[2],page0[3]);
+   // printf("%d %u %u %u %u\n",ret,page0[0],page0[1],page0[2],page0[3]);
     //for(int i=0;i<100;i++)
       //printf("%d %u\n",i,*(((unsigned char*)page0)+i));
-    for(int i=0;i<page0[1]/4;i++){
+    bufPageManager->release(pageIndex);
+    //printf("%d\n",ret);
+    for(int i=0;i<theFileInfo.recordLength/4;i++){
       //printf("%d\n",i);
       theFileInfo.indexes.push_back(NULL);
       fstream file;
@@ -177,23 +178,29 @@ public:
         rd.clear();
         int fileIndex,pageIndex;
         fileManager->openFile(name.c_str(),fileIndex);
+        //printf("%d\n",fileIndex);
         BufType page0=bufPageManager->getPage(fileIndex,0,pageIndex);
         int llen=page0[0];
+        //printf("%d\n",llen);
+        bufPageManager->release(pageIndex);
         for(int j=0;j<llen;j++){
           BufType page=bufPageManager->getPage(fileIndex,j/4+1,pageIndex);
+          //printf("%d\n",pageIndex);
           uint* thisnode=new uint[512];
           memcpy(thisnode,page+(j%4)*512,2048);
           rd.push_back(thisnode);
           bufPageManager->release(pageIndex);
 
         }
-        bufPageManager->release(pageIndex);
+        //printf("123\n");
         fileManager->closeFile(fileIndex);
+        //printf("123\n");
         theFileInfo.indexes[i]->buildtree(rd);
+        //printf("123\n");
       }
     }
     fileInfo.push_back(theFileInfo);
-      //printf("%d %d\n",ret,theFileInfo.recordLength);
+    //  printf("%d %d\n",ret,theFileInfo.recordLength);
     if(theFileInfo.indexes[0]==NULL)createIndex(ret,0,4);
     return ret;
   }
@@ -209,15 +216,13 @@ public:
     page0[2]=info.recordNumber;
     page0[3]=info.recordIndex;
     bufPageManager->writeBack(pageIndex);
-    bufPageManager->release(pageIndex);
-    printf("saved %d %d %d %d\n",page0[0],page0[1],page0[2],page0[3]);
+    //printf("saved %d %d %d %d\n",page0[0],page0[1],page0[2],page0[3]);
     for(int i=1;i<info.pageNumber;i++){
-      printf("saving page %d\n",i);
+      //printf("saving page %d\n",i);
       int pageIndex;
       bufPageManager->getPage(index,i,pageIndex);
       bufPageManager->markDirty(pageIndex);
       bufPageManager->writeBack(pageIndex);
-      bufPageManager->release(pageIndex);
     }
     for(int i=0;i<info.indexes.size();i++)
       if(info.indexes[i]!=NULL){
@@ -229,22 +234,25 @@ public:
         fileManager->openFile(name.c_str(),theIndex);
         int pageIndex;
         std::vector<uint*> buffers=info.indexes[i]->tobuffers();
+        //printf("%d\n",buffers.size());
         BufType page0=bufPageManager->getPage(theIndex,0,pageIndex);
         bufPageManager->markDirty(pageIndex);
         page0[0]=buffers.size();
+        //printf("%d\n",pageIndex);
         bufPageManager->writeBack(pageIndex);
-        bufPageManager->release(pageIndex);
-        for(int i=0;i<(buffers.size()+1)/4;i++){
-          BufType page=bufPageManager->getPage(theIndex,i+1,pageIndex);
+        //printf("%d\n",buffers.size());
+        for(int j=0;j<(buffers.size()-1)/4+1;j++){
+          //printf("%d\n",j);
+          BufType page=bufPageManager->getPage(theIndex,j+1,pageIndex);
           bufPageManager->markDirty(pageIndex);
-          memcpy(page,buffers[i*4],2048);
-          if(i*4+1<buffers.size())memcpy(page+512,buffers[i*4+1],2048);
-          if(i*4+2<buffers.size())memcpy(page+1024,buffers[i*4+2],2048);
-          if(i*4+3<buffers.size())memcpy(page+1536,buffers[i*4+3],2048);
+          //printf("%d %d %u\n",j+1,pageIndex,page[0]);
+
+          memcpy(page,buffers[j*4],2048);
+          if(j*4+1<buffers.size())memcpy(page+512,buffers[j*4+1],2048);
+          if(j*4+2<buffers.size())memcpy(page+1024,buffers[j*4+2],2048);
+          if(j*4+3<buffers.size())memcpy(page+1536,buffers[j*4+3],2048);
           bufPageManager->writeBack(pageIndex);
-          bufPageManager->release(pageIndex);
         }
-        bufPageManager->release(pageIndex);
         fileManager->closeFile(theIndex);
       }
   }
@@ -363,6 +371,7 @@ public:
     }*/
     int recordsPerPage=PAGE_SIZE/info.recordLength;
     int find=findRecord(fileIndex,recordIndex);
+    //printf("%d\n",find);
     if(find!=-1){
       int page=find/recordsPerPage+1;
       int pageIndex;
@@ -424,6 +433,10 @@ public:
     int theIndex=ntshm->getdata(fileIndex);
     return fileInfo[theIndex].recordLength-4;
   }
+  bool hasIndex(int fileIndex,int indexIndex){
+    int theIndex=ntshm->getdata(fileIndex);
+    return fileInfo[theIndex].indexes[indexIndex]!=NULL;
+  }
   uint parseIndex(const char* ch){//不是索引
     uint ans=0;
     for(int i=0;i<4;i++){
@@ -438,7 +451,7 @@ public:
 
     }
   }
-  int createIndex(int fileIndex, int begin, int end){
+  int createIndex(int fileIndex, int begin, int end){//INSERT INTO `orders` VALUES (100001,301743,260874,'2017-09-14',5);
     if(begin%4!=0||end%4!=0||end-begin!=4){
       printf("Invalid place!");
       return -1;
@@ -449,6 +462,7 @@ public:
     //printf("123 %d %u\n",indexIndex,info.indexes.size());
     info.indexes[indexIndex]=new BTree();
     //printf("123\n");
+    printf("%d\n",indexIndex);
     int recordsPerPage=PAGE_SIZE/info.recordLength;
     for(int i=0;i<info.recordNumber;i++){
       //printf("%d\n",i);
@@ -458,7 +472,7 @@ public:
       int place=i%recordsPerPage*info.recordLength;
       uint toinsert=*(page1+place/4+begin/4);
       bufPageManager->release(pageIndex);
-      //printf("%u %d\n",toinsert,i);
+      //printf("%u %d %d\n",toinsert,i,begin);
       info.indexes[indexIndex]->insertdata(toinsert,i);
     }
     return indexIndex;
@@ -476,6 +490,7 @@ public:
     }
   }
   std::vector<char*> findbyIndex(int fileIndex, int indexIndex, int begin, int end){
+    //printf("%d %d %d\n",begin,end,indexIndex);
     std::vector<char*> ret;
     ret.clear();
     int theIndex=ntshm->getdata(fileIndex);

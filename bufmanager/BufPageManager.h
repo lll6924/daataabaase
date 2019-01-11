@@ -81,12 +81,12 @@ public:
 		index = hash->findIndex(fileID, pageID);
 		if (index != -1) {
 			access(index);
-        printf("%d %d\n",addr[index][0],addr[index][1]);
+        //printf("multiple:%d %d\n",addr[index][0],addr[index][1]);
 			return addr[index];
 		} else {
 			BufType b = fetchPage(fileID, pageID, index);
 			fileManager->readPage(fileID, pageID, b, 0);
-   printf("%d %d\n",b[0],b[1]);
+   //printf("got:%d %d %d %d %d\n",fileID,pageID,b[0],b[1],b[2]);
 			return b;
 		}
 	}
@@ -131,8 +131,8 @@ public:
 		if (dirty[index]) {
 			int f, p;
 			hash->getKeys(index, f, p);
-      printf("towrite\n");
-      printf("%d %d\n",addr[index][0],addr[index][1]);
+     // printf("towrite\n");
+      //printf("%d %d\n",addr[index][0],addr[index][1]);
 			fileManager->writePage(f, p, addr[index], 0);
 			dirty[index] = false;
 		}

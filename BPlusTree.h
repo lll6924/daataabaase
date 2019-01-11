@@ -196,7 +196,7 @@ struct BTree{
       int t1=0,t2=now->len-1;
       while(t1<t2){
         int mid=(t1+t2)/2;
-        if(now->maxvalues[mid]>left)t2=mid;
+        if(now->maxvalues[mid]>=left)t2=mid;
           else t1=mid+1;
       }
       now=now->sons[t1];
@@ -204,9 +204,10 @@ struct BTree{
     int t1=0,t2=now->len-1;
     while(t1<t2){
       int mid=(t1+t2)/2;
-      if(now->maxvalues[mid]>left)t2=mid;
+      if(now->maxvalues[mid]>=left)t2=mid;
         else t1=mid+1;
     }
+    //printf("%d\n",now->maxvalues[t1]);
     BTreeNode* now2=now;
     while(now->maxvalues[t1]>=left&&now->maxvalues[t1]<right){
       ret.push_back(now->data[t1]);
@@ -436,7 +437,7 @@ struct BTree{
     int maxdata=0;
     for(int i=0;i<inp.size();i++)
       if(inp[i][0]==1){
-       // printf("%d\n",inp[i][2]);
+        //printf("%d\n",inp[i][2]);
         for(int j=0;j<inp[i][2];j++){
           if(inp[i][6+j+2*inp[i][2]]>maxdata)maxdata=inp[i][6+j+2*inp[i][2]];
          // printf("%d %d %d\n",inp[i][6+j],inp[i][6+j+inp[i][2]],inp[i][6+j+2*inp[i][2]]);

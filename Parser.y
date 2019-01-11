@@ -22,6 +22,7 @@ std::string getdatabase();
 %token NOT_EQUAL MORE_OR_EQUAL LESS_OR_EQUAL
 %token VALUE_STRING VALUE_INT IDENTIFIER
 
+
 %%
 program  :
          | program stmt
@@ -191,17 +192,18 @@ valueIntOrEmpty : '(' VALUE_INT ')'
                   }
                 ;
 
-valueLists  : '(' valueList ')'
-              {
-                $$.values.clear();
-                $$.values.push_back($2.valuelist);
-              }
-            | valueLists ',' '(' valueList ')'
+valueLists  : valueLists ',' '(' valueList ')'
               {
                 $$.values.swap($1.values);
                 $$.values.push_back($4.valuelist);
               }
+              | '(' valueList ')'
+              {
+                $$.values.clear();
+                $$.values.push_back($2.valuelist);
+              }
             ;
+
 
 valueList  : value
             {

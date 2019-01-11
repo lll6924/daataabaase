@@ -49,7 +49,7 @@ bool doOperation(Value v1,int op,Value v2){
     return false;
   }
   if(v1.type==Value::_INT&&v2.type==Value::_INT){
-    printf("recognized!\n");
+    //printf("recognized!\n");
     if(op==WhereItem::_EQUAL)return v1.intValue==v2.intValue;
     if(op==WhereItem::_NOT_EQUAL)return v1.intValue!=v2.intValue;
     if(op==WhereItem::_LESS_OR_EQUAL)return v1.intValue<=v2.intValue;
@@ -92,7 +92,7 @@ int getSizeLength(Type type){
   if(type.typeId==Type::_FLOAT)return 4;
   if(type.typeId==Type::_DATE)return 4;
   if(type.typeId==Type::_INT)return 4;
-  if(type.typeId==Type::_CHAR)return 4+type.len/4*4;
+  if(type.typeId==Type::_CHAR)return 4+(type.len+2)/4*4;
   return 0;
 }
 
@@ -355,7 +355,6 @@ void checkglobalconfig(){
     bufPageManager->markDirty(pageIndex);
     page0[0]=0;
     bufPageManager->writeBack(pageIndex);
-    bufPageManager->release(pageIndex);
     fileManager->closeFile(theIndex);
   }else fclose(file);
 }
@@ -387,7 +386,6 @@ void ShowDatabases::accept(){
     printf("%s\n",name.c_str());
   }
   bufPageManager->writeBack(pageIndex);
-  bufPageManager->release(pageIndex);
   fileManager->closeFile(theIndex);
 }
 
@@ -413,7 +411,6 @@ void CreateDatabase::accept(){
     }
   }
   bufPageManager->writeBack(pageIndex);
-  bufPageManager->release(pageIndex);
   fileManager->closeFile(theIndex);
   
   std::string command = "mkdir -p " + dbname;
@@ -426,7 +423,6 @@ void CreateDatabase::accept(){
   page0[0]=0;
   page0[1]=1;
   bufPageManager->writeBack(pageIndex);
-  bufPageManager->release(pageIndex);
   fileManager->closeFile(theIndex);
 }
 
@@ -474,7 +470,6 @@ void DropDatabase::accept(){
   }
   page0[0]--;
   bufPageManager->writeBack(pageIndex);
-  bufPageManager->release(pageIndex);
   fileManager->closeFile(theIndex);
   std::string command = "rm -r " + dbname;
   system(command.c_str());
@@ -488,18 +483,18 @@ void UseDatabase::accept(){
     printf("No such database!\n");
     return;
   }
-  printf("%d\n",theIndex);
-  database=dbname;
-  printf("Switched to database %s\n",database.c_str());
+  //printf("%d\n",theIndex);
   if(database.length()){
     for(int i=0;i<globaltables.size();i++){
       rm->closeFile(globaltables[i].fileid);
     }
   }
   globaltables.clear();
+  database=dbname;
+  printf("Switched to database %s\n",database.c_str());
   int pageIndex;
   BufType page0=bufPageManager->getPage(theIndex,0,pageIndex);
-  printf("%d\n",page0[0]);
+ // printf("%d\n",page0[0]);
   for(int i=0;i<page0[0];i++){
     table tb;
     tb.place=page0[i*64+64];
@@ -518,9 +513,9 @@ void UseDatabase::accept(){
       if(finish)break;
     }
     std::string thename=database+"/"+tb.name;
-    printf("%s\n",thename.c_str());
+    //printf("%s\n",thename.c_str());
     tb.fileid=rm->openFile(thename.c_str());
-    printf("%d\n",tb.fileid);
+    //printf("%d\n",tb.fileid);
     globaltables.push_back(tb);
   }
   bufPageManager->release(pageIndex);
@@ -530,6 +525,12 @@ void UseDatabase::accept(){
 void ShowTables::accept(){
   for(int i=0;i<globaltables.size();i++)
     printf("%s\n",globaltables[i].name.c_str());
+}
+
+bool sametype(Type t1,Type t2){
+  if(t1.typeId!=t2.typeId)return false;
+  if(t1.typeId==Type::_DATE||t1.typeId==Type::_FLOAT)return true;
+  return t1.len==t2.len;
 }
 
 void CreateTable::accept(){
@@ -548,7 +549,6 @@ void CreateTable::accept(){
     fields[j].isprimarykey=false;
     if(fields[j].type!=Field::primarykey&&fields[j].colName.length()>32){
       bufPageManager->writeBack(pageIndex);
-      bufPageManager->release(pageIndex);
       fileManager->closeFile(theIndex);
       printf("Column name too long!\n");
       return;
@@ -556,7 +556,6 @@ void CreateTable::accept(){
     for(int i=j+1;i<fields.size();i++)
       if(fields[j].type==Field::column&&fields[i].type==Field::column&&fields[j].colName==fields[i].colName){
         bufPageManager->writeBack(pageIndex);
-        bufPageManager->release(pageIndex);
         fileManager->closeFile(theIndex);
         printf("Repeated column name!\n");
         return;
@@ -570,7 +569,6 @@ void CreateTable::accept(){
         for(int k=j+1;k<fields[i].columns.size();k++)
           if(fields[i].columns[j]==fields[i].columns[k]){
             bufPageManager->writeBack(pageIndex);
-            bufPageManager->release(pageIndex);
             fileManager->closeFile(theIndex);
             printf("Repeated primary keys!\n");
             return;
@@ -586,25 +584,46 @@ void CreateTable::accept(){
         if(!found){
           bufPageManager->writeBack(pageIndex);
           fileManager->closeFile(theIndex);
-          bufPageManager->release(pageIndex);
           printf("Invalid primary key!\n");
           return;
         }
       }
+      fields[i].type=Field::skip;
     }else if(fields[i].type==Field::foreignkey){
+      columncnt--;
+      bool found=false;
+      int j;
+      for(j=0;j<i;j++)
+        if(fields[j].type==Field::column&&fields[i].colName==fields[j].colName){
+          found=true;
+          break;
+        }
+      if(!found){
+        bufPageManager->writeBack(pageIndex);
+        fileManager->closeFile(theIndex);
+        printf("Invalid foreign key!\n");
+        return;
+      }
       Field foreigncolumn;
       if(getColumn(fields[i].reftable,fields[i].refcolumn,foreigncolumn)){
         if(!foreigncolumn.isprimarykey){
           printf("Foreign key is not primary key!\n");
           bufPageManager->writeBack(pageIndex);
-          bufPageManager->release(pageIndex);
           fileManager->closeFile(theIndex);
           return;
         }
-        fields[i].thetype=foreigncolumn.thetype;
+        if(!sametype(foreigncolumn.thetype,fields[j].thetype)){
+          printf("Incompatible foreign key type!\n");
+          bufPageManager->writeBack(pageIndex);
+          fileManager->closeFile(theIndex);
+          return;
+        }
+        fields[j].type=fields[i].type;
+        fields[j].reftable=fields[i].reftable;
+        fields[j].refcolumn=fields[i].refcolumn;
+        fields[i].type=Field::skip;
       }else{
         bufPageManager->writeBack(pageIndex);
-        bufPageManager->release(pageIndex);
         fileManager->closeFile(theIndex);
         printf("Invalid foreign key!\n");
         return;
@@ -634,7 +653,6 @@ void CreateTable::accept(){
       page0[1]++;
       bufPageManager->markDirty(pageIndex);
       bufPageManager->writeBack(pageIndex);
-      bufPageManager->release(pageIndex);
     }
     BufType page1=bufPageManager->getPage(theIndex,page0[0]+1,pageIndex);
     bufPageManager->markDirty(pageIndex);
@@ -642,7 +660,7 @@ void CreateTable::accept(){
     page1[0]=columncnt;
     int recordLength=0;
     for(int i=0;i<fields.size();i++)
-      if(fields[i].type!=Field::primarykey){
+      if(fields[i].type!=Field::skip){
         int columnLength=getSizeLength(fields[i].thetype);
         page1[i*64+1024+17]=recordLength;
         recordLength+=getSizeLength(fields[i].thetype);
@@ -682,13 +700,11 @@ void CreateTable::accept(){
         }
       }
     bufPageManager->writeBack(pageIndex);
-    bufPageManager->release(pageIndex);
     rm->createFile(sqlfile.c_str(),recordLength);
     tb.fileid=rm->openFile(sqlfile.c_str());
     globaltables.push_back(tb);
   }
   bufPageManager->writeBack(pageIndex);
-  bufPageManager->release(pageIndex);
   fileManager->closeFile(theIndex);
 }
 
@@ -720,8 +736,6 @@ void DropTable::accept(){
       //printf("%d %d\n",page00[0],page00[1]);
       bufPageManager->writeBack(pageIndex1);
       bufPageManager->writeBack(pageIndex);
-      bufPageManager->release(pageIndex);
-      bufPageManager->release(pageIndex1);
       bufPageManager->release(pageIndex2);
       fileManager->closeFile(theIndex);
       globaltables[globaltables.size()-1].place=globaltables[i].place;
@@ -752,6 +766,7 @@ bool canassign(int type,int valuetype){
   if(type==Type::_INT&&valuetype==Value::_INT)return true;
   if(type==Type::_CHAR&&valuetype==Value::_STRING)return true;
   if(type==Type::_DATE&&valuetype==Value::_DATE)return true;
+  if(type==Type::_DATE&&valuetype==Value::_STRING)return true;
   return false;
 }
 
@@ -763,6 +778,17 @@ bool cancompare(int type,int type2){
   if(type==Type::_CHAR&&type2==Type::_CHAR)return true;
   if(type==Type::_DATE&&type2==Type::_DATE)return true;
   return false;
+}
+
+int parseDate(std::string st){
+  int ret=0;
+  if(st.length()<12)return -1;
+  for(int i=1;i<11;i++){
+    if(i==5||i==8)continue;
+    ret=ret*10;
+    ret+=st[i]-'0';
+  }
+  return ret;
 }
 
 char* Value::toString(Type type){
@@ -777,8 +803,12 @@ char* Value::toString(Type type){
     //printf("%d %f\n",len,fl);
     memcpy(ret,&fl,len);
   }
-  if(type.typeId==Type::_DATE)
+  if(type.typeId==Type::_DATE){
+    if(this->type==_STRING){
+      dateValue=parseDate(stringValue);
+    }
     memcpy(ret,&dateValue,len);
+  }
   if(type.typeId==Type::_INT){
     memcpy(ret,&intValue,len);
   }
@@ -789,7 +819,29 @@ char* Value::toString(Type type){
   return ret;
 }
 
+
+int Value::toInt(Type type){
+  int ret=0;
+  if(this->type==_NULL)return -1;
+  if(type.typeId==Type::_FLOAT){
+    float fl=(this->type==_FLOAT)?floatValue:intValue;
+    //printf("%d %f\n",len,fl);
+    memcpy(&ret,&fl,4);
+  }
+  if(type.typeId==Type::_DATE){
+    if(this->type==_STRING){
+      dateValue=parseDate(stringValue);
+    }
+    return dateValue;
+  }
+  if(type.typeId==Type::_INT){
+    return intValue;
+  }
+  return ret;
+}
+
 void InsertValue::accept(){
+  printf("Begin insert\n");
   bool found=false;
   for(int i=0;i<globaltables.size();i++){
     if(globaltables[i].name==tbname){
@@ -799,20 +851,19 @@ void InsertValue::accept(){
       fileManager->openFile(configfile.c_str(),theIndex);
       int pageIndex;
       BufType page0=bufPageManager->getPage(theIndex,globaltables[i].place,pageIndex);
-      for(int i=0;i<values.size();i++)
-        if(values[i].size()!=page0[0]){
+      for(int j=0;j<values.size();j++)
+        if(values[j].size()!=page0[0]){
           printf("Incompatible value list!\n");
           bufPageManager->writeBack(pageIndex);
-          bufPageManager->release(pageIndex);
           fileManager->closeFile(theIndex);
           return;
         }
       for(int j=0;j<page0[0];j++){
+        printf("Checking column %d\n",j);
         for(int k=0;k<values.size();k++){
           if((page0[j*64+1024+2]==0&&values[k][j].type==Value::_NULL)||!canassign(page0[j*64+1024],values[k][j].type)){
             printf("Incompatible value list!\n");
             bufPageManager->writeBack(pageIndex);
-            bufPageManager->release(pageIndex);
             fileManager->closeFile(theIndex);
             return;
           }
@@ -848,19 +899,23 @@ void InsertValue::accept(){
             }
             if(finish)break;
           }
+         // printf("%s %s\n",reftable.c_str(),refcolumn.c_str());
+          //INSERT INTO `orders` VALUES (100001,301743,260874,'2017-09-14',5);
           Field foreigncolumn;
           if(!getColumn(reftable,refcolumn,foreigncolumn)){
             bufPageManager->writeBack(pageIndex);
-            bufPageManager->release(pageIndex);
             fileManager->closeFile(theIndex);
-            printf("Invalid foreign key!\n");
-            bufPageManager->release(pageIndex);
+            printf("Invalid foreign key! case 1\n");
             return;
           }
           std::string foreignfile=database+"/"+tbname;
           int ref=-1;
           for(int k=0;k<globaltables.size();k++)
-            if(globaltables[k].name==reftable)ref=globaltables[k].fileid;
+            if(globaltables[k].name==reftable){
+              ref=globaltables[k].fileid;
+              //printf("%d %d\n",k,ref);
+              break;
+            }
           if(ref==-1){
             printf("Unfound foreign key(maybe an internal error)!\n");
             bufPageManager->release(pageIndex);
@@ -871,7 +926,11 @@ void InsertValue::accept(){
             Type type;
             type.typeId=page0[j*64+1024];
             type.len=page0[j*64+1024+1];
-            std::vector<char*> ret=rm->filterRecord(ref,foreigncolumn.left,foreigncolumn.right,values[k][j].toString(type),new EqualFilter());
+            std::vector<char*> ret;
+            int toint=values[k][j].toInt(type);
+            if(foreigncolumn.right-foreigncolumn.left==4&&rm->hasIndex(ref,foreigncolumn.left/4+1))
+              ret=rm->findbyIndex(ref,foreigncolumn.left/4+1,toint,toint+1);
+            else ret=rm->filterRecord(ref,foreigncolumn.left,foreigncolumn.right,values[k][j].toString(type),new EqualFilter());
             if(ret.size()==0){
               printf("Invalid foreign key!\n");
               bufPageManager->release(pageIndex);
@@ -886,7 +945,11 @@ void InsertValue::accept(){
             Type type;
             type.typeId=page0[j*64+1024];
             type.len=page0[j*64+1024+1];
-            std::vector<char*> ret=rm->filterRecord(ref,page0[64*j+1024+17],page0[64*j+1024+18],values[k][j].toString(type),new EqualFilter());
+            std::vector<char*> ret;
+            int toint=values[k][j].toInt(type);
+            if(page0[64*j+1024+18]-page0[64*j+1024+17]==4&&rm->hasIndex(ref,page0[64*j+1024+17]/4+1))
+              ret=rm->findbyIndex(ref,page0[64*j+1024+17]/4+1,toint,toint+1);
+            else ret=rm->filterRecord(ref,page0[64*j+1024+17],page0[64*j+1024+18],values[k][j].toString(type),new EqualFilter());
             if(ret.size()!=0){
               printf("Repeated primary key!\n");
               bufPageManager->release(pageIndex);
@@ -896,6 +959,7 @@ void InsertValue::accept(){
           }
         }
       }
+      printf("Checked up\n");
       std::string thisfile=database+"/"+tbname;
       int ref=globaltables[i].fileid;
       int len=rm->getRecordLength(ref);
@@ -909,8 +973,8 @@ void InsertValue::accept(){
           char* tos=values[j][k].toString(type);
           memcpy(rc+page0[k*64+1024+17],values[j][k].toString(type),page0[k*64+1024+18]-page0[k*64+1024+17]);
         }
-        for(int k=0;k<len;k++)
-          printf("value %d : %d\n",k,rc[k]);
+        //for(int k=0;k<len;k++)
+          //printf("value %d : %d\n",k,rc[k]);
         rm->insertRecord(ref,rc);
       }
       bufPageManager->release(pageIndex);
@@ -926,6 +990,7 @@ void InsertValue::accept(){
 }
 
 void DeleteValues::accept(){
+  uint lower=0,upper=-1,index=-1;
   for(int i=0;i<wheres.size();i++){
     if((wheres[i].left.hastable&&wheres[i].left.table!=tbname)||(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::COL&&wheres[i].expr.column.hastable&&wheres[i].expr.column.table!=tbname)){
       printf("Invalid column!\n");
@@ -955,6 +1020,30 @@ void DeleteValues::accept(){
       printf("Invalid operation!\n");
       return;
     }
+    if(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::VALUE&&wheres[i].Operator!=WhereItem::_NOT_EQUAL){
+      int val=wheres[i].expr.value.toInt(wheres[i].left.type);
+      index=wheres[i].left.left/4+1;
+      if(wheres[i].Operator==WhereItem::_EQUAL){
+        lower=val;
+        upper=val+1;
+      }
+      if(wheres[i].Operator==WhereItem::_LESS_OR_EQUAL){
+        lower=0;
+        upper=val+1;
+      }
+      if(wheres[i].Operator==WhereItem::_MORE_OR_EQUAL){
+        lower=val;
+        upper=-1;
+      }
+      if(wheres[i].Operator==WhereItem::_LESS){
+        lower=0;
+        upper=val;
+      }
+      if(wheres[i].Operator==WhereItem::_MORE){
+        lower=val+1;
+        upper=-1;
+      }
+    }
   }
   int ref=-1;
   for(int j=0;j<globaltables.size();j++){
@@ -969,7 +1058,9 @@ void DeleteValues::accept(){
   std::vector<int> todelete;
   todelete.clear();
   //printf("%d\n",len);
-  std::vector<char*> gt=rm->filterRecord(ref,0,0,NULL,new TransparentFilter());
+  std::vector<char*> gt;
+  if((int)index!=-1&&rm->hasIndex(ref,index))gt=rm->findbyIndex(ref,index,lower,upper);
+  else gt=rm->filterRecord(ref,0,0,NULL,new TransparentFilter());
   for(int i=0;i<gt.size();i++){
     bool valid=true;
     for(int j=0;j<wheres.size();j++){
@@ -1015,6 +1106,15 @@ void DeleteValues::accept(){
 }
 
 void UpdateValues::accept(){
+  uint lower=0,upper=-1,index=-1;
+  int ref=-1;
+  for(int j=0;j<globaltables.size();j++){
+    if(tbname==globaltables[j].name)ref=globaltables[j].fileid;
+  }
+  if(ref==-1){
+    printf("Unknown table!\n");
+    return;
+  }
   for(int i=0;i<wheres.size();i++){
     if((wheres[i].left.hastable&&wheres[i].left.table!=tbname)||(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::COL&&wheres[i].expr.column.hastable&&wheres[i].expr.column.table!=tbname)){
       printf("Invalid column!\n");
@@ -1044,7 +1144,32 @@ void UpdateValues::accept(){
       printf("Invalid operation!\n");
       return;
     }
+    if(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::VALUE&&wheres[i].Operator!=WhereItem::_NOT_EQUAL){
+      int val=wheres[i].expr.value.toInt(wheres[i].left.type);
+      index=wheres[i].left.left/4+1;
+      if(wheres[i].Operator==WhereItem::_EQUAL){
+        lower=val;
+        upper=val+1;
+      }
+      if(wheres[i].Operator==WhereItem::_LESS_OR_EQUAL){
+        lower=0;
+        upper=val+1;
+      }
+      if(wheres[i].Operator==WhereItem::_MORE_OR_EQUAL){
+        lower=val;
+        upper=-1;
+      }
+      if(wheres[i].Operator==WhereItem::_LESS){
+        lower=0;
+        upper=val;
+      }
+      if(wheres[i].Operator==WhereItem::_MORE){
+        lower=val+1;
+        upper=-1;
+      }
+    }
   }
+  bool affectprimarykey=false;
   for(int i=0;i<sets.size();i++){
     Field field;
     if(!getColumn(tbname,sets[i].column,field)){
@@ -1058,23 +1183,57 @@ void UpdateValues::accept(){
       printf("Invalid operation!\n");
       return;
     }
+    if(field.type==Field::foreignkey){
+      int foundref=-1;
+      for(int j=0;j<globaltables.size();j++){
+        if(globaltables[j].name==field.reftable){
+          foundref=globaltables[j].fileid;
+          break;
+        }
+      }
+      if(foundref==-1){
+        printf("Internal error!\n");
+        return;
+      }
+      Field f2;
+      if(!getColumn(field.reftable,field.refcolumn,f2)){
+        printf("Internal error!\n");
+        return;
+      }
+      std::vector<char*> ret;
+      int toint=sets[i].value.toInt(sets[i].type);
+      if(f2.right-f2.left==4&&rm->hasIndex(foundref,f2.left/4+1))
+        ret=rm->findbyIndex(ref,f2.left/4+1,toint,toint+1);
+      else ret=rm->filterRecord(foundref,f2.left,f2.right,sets[i].value.toString(sets[i].type),new EqualFilter());
+      if(ret.size()==0){
+        printf("Unfound primary key!\n");
+        return;
+      }
+    }
+    if(field.isprimarykey){
+      affectprimarykey=true;
+      std::vector<char*> ret;
+      int toint=sets[i].value.toInt(sets[i].type);
+      if(field.right-field.left==4&&rm->hasIndex(ref,field.left/4+1))
+        ret=rm->findbyIndex(ref,field.left/4+1,toint,toint+1);
+      else ret=rm->filterRecord(ref,field.left,field.right,sets[i].value.toString(sets[i].type),new EqualFilter());
+      if(ret.size()>0){
+        printf("Repeated primary key!\n");
+        return;
+      }
+    }
   }
-  int ref=-1;
-  for(int j=0;j<globaltables.size();j++){
-    if(tbname==globaltables[j].name)ref=globaltables[j].fileid;
-  }
-  if(ref==-1){
-    printf("Unknown table!\n");
-    return;
-  }
-  printf("Renewed:\n");
+  
+  
   int len=rm->getRecordLength(ref);
   std::vector<int> toupdate;
   toupdate.clear();
   std::vector<char*> torenew;
   torenew.clear();
   //printf("%d\n",len);
-  std::vector<char*> gt=rm->filterRecord(ref,0,0,NULL,new TransparentFilter());
+  std::vector<char*> gt;
+  if((int)index!=-1&&rm->hasIndex(ref,index))gt=rm->findbyIndex(ref,index,lower,upper);
+  else gt=rm->filterRecord(ref,0,0,NULL,new TransparentFilter());
   for(int i=0;i<gt.size();i++){
     bool valid=true;
     for(int j=0;j<wheres.size();j++){
@@ -1110,12 +1269,18 @@ void UpdateValues::accept(){
       }
     }
     if(valid){
-      printf("%d\n",rm->parseIndex(gt[i]));
       toupdate.push_back(rm->parseIndex(gt[i]));
       torenew.push_back(gt[i]);
     }
   }
+  if(affectprimarykey&&toupdate.size()>1){
+    printf("Error: May result in multiple primary key!\n");
+    return;
+  }
+  printf("Renewed:\n");
+
   for(int i=0;i<toupdate.size();i++){
+    printf("%d\n",toupdate[i]);
     for(int j=0;j<sets.size();j++){
       char* dt=sets[j].value.toString(sets[j].type);
       memcpy(torenew[i]+4+sets[j].left,dt,sets[j].right-sets[j].left);
@@ -1176,6 +1341,17 @@ void SelectValues::accept(){
       }
     }
   }
+  std::vector<uint> lower;
+  std::vector<uint> upper;
+  std::vector<uint> index;
+  lower.clear();
+  upper.clear();
+  index.clear();
+  for(int i=0;i<tables.size();i++){
+    lower.push_back(0);
+    upper.push_back(-1);
+    index.push_back(-1);
+  }
   for(int i=0;i<wheres.size();i++){
     if(tables.size()==1){
       if(wheres[i].left.hastable==false){
@@ -1189,21 +1365,6 @@ void SelectValues::accept(){
     }
     if(wheres[i].left.hastable==false||(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::COL&&wheres[i].expr.column.hastable==false)){
       printf("Undetermined column!\n");
-      return;
-    }
-    bool found=false,found2=wheres[i].type!=WhereItem::OPERATION||wheres[i].expr.type!=Expr::COL;
-    for(int j=0;j<tables.size();j++){
-      if(wheres[i].left.table==tables[j]){
-        wheres[i].left.place=j;
-        found=true;
-      }
-      if(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::COL&&wheres[i].expr.column.table==tables[j]){
-        wheres[i].expr.column.place=j;
-        found2=true;
-      }
-    }
-    if(found==false||found2==false){
-      printf("Unfound column!\n");
       return;
     }
     Field field;
@@ -1230,6 +1391,45 @@ void SelectValues::accept(){
       printf("Invalid operation!\n");
       return;
     }
+    bool found=false,found2=wheres[i].type!=WhereItem::OPERATION||wheres[i].expr.type!=Expr::COL;
+    for(int j=0;j<tables.size();j++){
+      if(wheres[i].left.table==tables[j]){
+        wheres[i].left.place=j;
+        if(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::VALUE&&wheres[i].Operator!=WhereItem::_NOT_EQUAL){
+          int val=wheres[i].expr.value.toInt(wheres[i].left.type);
+          index[j]=wheres[i].left.left/4+1;
+          if(wheres[i].Operator==WhereItem::_EQUAL){
+            lower[j]=val;
+            upper[j]=val+1;
+          }
+          if(wheres[i].Operator==WhereItem::_LESS_OR_EQUAL){
+            lower[j]=0;
+            upper[j]=val+1;
+          }
+          if(wheres[i].Operator==WhereItem::_MORE_OR_EQUAL){
+            lower[j]=val;
+            upper[j]=-1;
+          }
+          if(wheres[i].Operator==WhereItem::_LESS){
+            lower[j]=0;
+            upper[j]=val;
+          }
+          if(wheres[i].Operator==WhereItem::_MORE){
+            lower[j]=val+1;
+            upper[j]=-1;
+          }
+        }
+        found=true;
+      }
+      if(wheres[i].type==WhereItem::OPERATION&&wheres[i].expr.type==Expr::COL&&wheres[i].expr.column.table==tables[j]){
+        wheres[i].expr.column.place=j;
+        found2=true;
+      }
+    }
+    if(found==false||found2==false){
+      printf("Unfound column!\n");
+      return;
+    }
   }
  // printf("finish where pre\n");
   std::vector<std::vector<char*> > cols;
@@ -1250,19 +1450,21 @@ void SelectValues::accept(){
       printf("Unknown table!\n");
       return;
     }
-    printf("%s\n",tables[i].c_str());
+    //printf("%s\n",tables[i].c_str());
     int len=rm->getRecordLength(ref);
     //printf("%d\n",len);
-    std::vector<char*> gt=rm->filterRecord(ref,0,0,NULL,new TransparentFilter());
-    for(int j=0;j<gt.size();j++){
+    std::vector<char*> gt;
+    if((int)index[i]!=-1&&rm->hasIndex(ref,index[i]))gt=rm->findbyIndex(ref,index[i],lower[i],upper[i]);
+    else gt=rm->filterRecord(ref,0,0,NULL,new TransparentFilter());
+    /*for(int j=0;j<gt.size();j++){
       for(int k=0;k<len+4;k++)
         printf("value %d : %u\n",k,(unsigned char)gt[j][k]);
-    }
+    }*/
     //printf("%u\n",gt.size());
     cols.push_back(gt);
     ns.push_back(gt.size());
     is.push_back(0);
-    printf("%d\n",gt.size());
+    //printf("%d\n",gt.size());
   }
   for(int i=0;i<selector.columns.size();i++){
     std::string toprint=selector.columns[i].table+"."+selector.columns[i].column;
@@ -1337,11 +1539,37 @@ void SelectValues::accept(){
 }
 
 void CreateIndex::accept(){
-
+  int ref=-1;
+  for(int j=0;j<globaltables.size();j++){
+    if(tbname==globaltables[j].name)ref=globaltables[j].fileid;
+  }
+  if(ref==-1){
+    printf("Unknown table!\n");
+    return;
+  }
+  Field field;
+  if(!getColumn(tbname,colname,field)){
+    printf("Unfound column!\n");
+    return;
+  }
+  rm->createIndex(ref,field.left+4,field.right+4);
 }
 
 void DropIndex::accept(){
-  
+  int ref=-1;
+  for(int j=0;j<globaltables.size();j++){
+    if(tbname==globaltables[j].name)ref=globaltables[j].fileid;
+  }
+  if(ref==-1){
+    printf("Unknown table!\n");
+    return;
+  }
+  Field field;
+  if(!getColumn(tbname,colname,field)){
+    printf("Unfound column!\n");
+    return;
+  }
+  rm->deleteIndex(ref,field.left/4+1);
 }
 
 void Exiter::accept(){

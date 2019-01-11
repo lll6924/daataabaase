@@ -35,6 +35,7 @@ public:
   float floatValue;
   int dateValue;
   char* toString(Type);
+  int toInt(Type);
 };
 
 struct Set{
@@ -92,6 +93,7 @@ public:
   static const int column=0;
   static const int primarykey=1;
   static const int foreignkey=2;
+  static const int skip=3;
   int type,left,right;
   bool isprimarykey;
   //type=column

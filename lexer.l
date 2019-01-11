@@ -8,11 +8,11 @@ extern "C"
 {
   int yylex(void);
 }
+//%option caseless
 
 %}
 
 %option noyywrap
-%option caseless
 
 NEWLINE (\r|\n|\r\n)
 SIMPLE_OPERATOR (";"|"("|")"|","|"."|"="|"<"|">"|"*"|"-")
@@ -20,7 +20,7 @@ WHITESPACE ([ \t]+)
 
 IDENTIFIER [A-Za-z][_0-9A-Za-z]*
 VALUE_INT [0-9]+
-VALUE_STRING '[^']*'
+VALUE_STRING '(\\'|[^'])*'
 
 %%
 
@@ -50,7 +50,7 @@ VALUE_STRING '[^']*'
 "SELECT" {return SELECT;}
 "IS" {return IS;}
 "INT" {return INT;}
-"VARCHAR" {return VARCHAR;}
+"CHAR" {return VARCHAR;}
 "DESC" {return DESC;}
 "REFERENCES" {return REFERENCES;}
 "INDEX" {return INDEX;}

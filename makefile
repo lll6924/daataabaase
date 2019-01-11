@@ -1,7 +1,7 @@
 CC=g++
 
 main: parsertestmain.o defs.o lex.yy.o y.tab.o handler.o
-	$(CC) parsertestmain.o defs.o lex.yy.o y.tab.o handler.o -o main
+	$(CC) parsertestmain.o defs.o lex.yy.o y.tab.o handler.o -o main 
 parsertestmain.o: parsertestmain.cpp
 	$(CC) -c parsertestmain.cpp
 defs.o: defs.cpp defs.h
