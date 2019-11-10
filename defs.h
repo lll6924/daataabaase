@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include "handler.h"
-#define YYSTYPE semvalue
+#define YYSTYPE semvalue*
 
 class semvalue{
 public:
@@ -41,10 +41,10 @@ public:
   Selector selector;
 };
 
-void identifier(const char* c,semvalue& ss);
+void identifier(const char* c,semvalue* ss);
 
-void intConstant(const char* c,semvalue& ss);
+void intConstant(const char* c,semvalue* ss);
 
-void stringConstant(const char* c,semvalue& ss);
+void stringConstant(const char* c,semvalue* ss);
 
 #endif

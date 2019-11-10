@@ -346,7 +346,7 @@ public:
       bufPageManager->markDirty(pageIndex2);
       int todeleteplace=find%recordsPerPage*info.recordLength;
       int tailplace=(info.recordNumber-1)%recordsPerPage*info.recordLength;
-      memcpy(todelete+todeleteplace/4,tail+tailplace/4,info.recordLength);
+      memcpy(todelete+todeleteplace/4+1,tail+tailplace/4+1,info.recordLength-4);
       //bufPageManager->release(pageIndex1);
       //bufPageManager->release(pageIndex2);
       for(int i=0;i<info.indexes.size();i++){
@@ -434,6 +434,7 @@ public:
     return fileInfo[theIndex].recordLength-4;
   }
   bool hasIndex(int fileIndex,int indexIndex){
+   // printf("%d %d\n",fileIndex,indexIndex);
     int theIndex=ntshm->getdata(fileIndex);
     return fileInfo[theIndex].indexes[indexIndex]!=NULL;
   }

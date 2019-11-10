@@ -1013,18 +1013,18 @@ YY_RULE_SETUP
 case 38:
 YY_RULE_SETUP
 #line 67 "lexer.l"
-{identifier(yytext,yylval);return IDENTIFIER;}
+{yylval=new semvalue();identifier(yytext,yylval);return IDENTIFIER;}
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
 #line 69 "lexer.l"
-{intConstant(yytext,yylval);return VALUE_INT;}
+{yylval=new semvalue();intConstant(yytext,yylval);return VALUE_INT;}
 	YY_BREAK
 case 40:
 /* rule 40 can match eol */
 YY_RULE_SETUP
 #line 71 "lexer.l"
-{stringConstant(yytext,yylval);return VALUE_STRING;}
+{yylval=new semvalue();stringConstant(yytext,yylval);return VALUE_STRING;}
 	YY_BREAK
 case 41:
 YY_RULE_SETUP

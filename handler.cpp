@@ -780,18 +780,39 @@ bool cancompare(int type,int type2){
   return false;
 }
 
+bool dateerror;
+
+const int datemonth[13]={0,31,28,31,30,31,30,31,31,30,31,30,31};
+
+bool validdate(int date){
+  int y=date/10000,m=date/100%100,d=date%100;
+  if(y<0)return false;
+  if(m<1||m>12)return false;
+  if(y%4==0&&y%100!=0||y%400==0){
+    if(m==2&&d==29)return true;
+  }
+  return d>0&&d<=datemonth[m];
+}
+
 int parseDate(std::string st){
+  dateerror=false;
   int ret=0;
-  if(st.length()<12)return -1;
+  if(st.length()<12){
+    dateerror=true;
+    return -1;
+  }
   for(int i=1;i<11;i++){
     if(i==5||i==8)continue;
     ret=ret*10;
     ret+=st[i]-'0';
   }
+  if(!validdate(ret))dateerror=true;
+  //printf("%d\n",dateerror);
   return ret;
 }
 
 char* Value::toString(Type type){
+  //printf("type:%d %d\n",this->type,type.typeId);
   int len=getSizeLength(type);
   char* ret=new char[len];
   if(this->type==_NULL){
@@ -805,6 +826,7 @@ char* Value::toString(Type type){
   }
   if(type.typeId==Type::_DATE){
     if(this->type==_STRING){
+      //printf("parsing date\n");
       dateValue=parseDate(stringValue);
     }
     memcpy(ret,&dateValue,len);
@@ -971,6 +993,15 @@ void InsertValue::accept(){
           type.typeId=page0[k*64+1024];
           type.len=page0[k*64+1024+1];
           char* tos=values[j][k].toString(type);
+          //printf("%d %d\n",j,k);
+          if(dateerror){
+            printf("INVALID DATE\n");
+            dateerror=false;
+            bufPageManager->release(pageIndex);
+            fileManager->closeFile(theIndex);
+            rm->saveFile(globaltables[i].fileid);
+            return;
+          }
           memcpy(rc+page0[k*64+1024+17],values[j][k].toString(type),page0[k*64+1024+18]-page0[k*64+1024+17]);
         }
         //for(int k=0;k<len;k++)
@@ -1283,6 +1314,12 @@ void UpdateValues::accept(){
     printf("%d\n",toupdate[i]);
     for(int j=0;j<sets.size();j++){
       char* dt=sets[j].value.toString(sets[j].type);
+      if(dateerror){
+        printf("INVALID DATE\n");
+        dateerror=false;
+        rm->saveFile(ref);
+        return;
+      }
       memcpy(torenew[i]+4+sets[j].left,dt,sets[j].right-sets[j].left);
     }
     rm->renewRecord(ref,toupdate[i],torenew[i]+4);
@@ -1432,7 +1469,10 @@ void SelectValues::accept(){
     }
   }
  // printf("finish where pre\n");
+  unsigned int cnt=0;
   std::vector<std::vector<char*> > cols;
+  std::vector<int> rfs;
+  rfs.clear();
   cols.clear();
   std::vector<int> ns;
   ns.clear();
@@ -1450,12 +1490,14 @@ void SelectValues::accept(){
       printf("Unknown table!\n");
       return;
     }
+    rfs.push_back(ref);
     //printf("%s\n",tables[i].c_str());
     int len=rm->getRecordLength(ref);
     //printf("%d\n",len);
     std::vector<char*> gt;
     if((int)index[i]!=-1&&rm->hasIndex(ref,index[i]))gt=rm->findbyIndex(ref,index[i],lower[i],upper[i]);
     else gt=rm->filterRecord(ref,0,0,NULL,new TransparentFilter());
+    printf("%u\n",gt.size());
     /*for(int j=0;j<gt.size();j++){
       for(int k=0;k<len+4;k++)
         printf("value %d : %u\n",k,(unsigned char)gt[j][k]);
@@ -1477,6 +1519,49 @@ void SelectValues::accept(){
     printf("%s ",toprint.c_str());
   }
   printf("\n");
+  //after adjust
+  for(int i=0;i<wheres.size();i++){
+    if(wheres[i].type==WhereItem::OPERATION){
+      //printf("Checking operation\n");
+      if(wheres[i].expr.type==Expr::COL){
+        int place=wheres[i].expr.column.place;
+        int leftref=rfs[wheres[i].left.place];
+        //printf("%d %d\n",place,wheres[i].left.place);
+        if(place==0&&wheres[i].left.place>0){
+          Value right=extractValue(cols[place][is[place]],wheres[i].expr.column.left+4,wheres[i].expr.column.right+4,wheres[i].expr.column.type);
+          if(rm->hasIndex(leftref,wheres[i].left.left/4+1)){
+         //   printf("rfd\n");
+            unsigned int lower,upper;
+            int val=right.toInt(wheres[i].left.type);
+            if(wheres[i].Operator==WhereItem::_EQUAL){
+              lower=val;
+              upper=val+1;
+            }
+            if(wheres[i].Operator==WhereItem::_LESS_OR_EQUAL){
+              lower=0;
+              upper=val+1;
+            }
+            if(wheres[i].Operator==WhereItem::_MORE_OR_EQUAL){
+              lower=val;
+              upper=-1;
+            }
+            if(wheres[i].Operator==WhereItem::_LESS){
+              lower=0;
+              upper=val;
+            }
+            if(wheres[i].Operator==WhereItem::_MORE){
+              lower=val+1;
+              upper=-1;
+            }
+           // printf("%d %d\n",lower,upper);
+            cols[wheres[i].left.place]=rm->findbyIndex(leftref,wheres[i].left.left/4+1,lower,upper);
+            ns[wheres[i].left.place]=cols[wheres[i].left.place].size();
+            //printf("%u\n",ns[wheres[i].left.place]);
+          }
+        }
+      }
+    }
+  }
   //printf("%d\n",tables.size());
   while(true){
     bool tf=false;
@@ -1486,6 +1571,11 @@ void SelectValues::accept(){
         break;
       }
     if(tf)break;
+    /*for(int i=0;i<tables.size();i++)
+      printf("%d ",is[i]);
+    printf("\n");*/
+    //SELECT customer.name,food.name,orders.quantity FROM orders,customer,food WHERE customer.id=orders.customer_id AND food.id=orders.food_id AND orders.date='2017/11/11';
+//INSERT INTO orders VALUES(1,315000,201015,'2018/02/28',8);
     bool valid=true;
     //printf("%u\n",wheres.size());
     for(int i=0;i<wheres.size();i++){
@@ -1522,6 +1612,7 @@ void SelectValues::accept(){
       }
     }
     if(valid){
+      cnt++;
       for(int i=0;i<selector.columns.size();i++){
         int place=selector.columns[i].place;
         Value value=extractValue(cols[place][is[place]],selector.columns[i].left+4,selector.columns[i].right+4,selector.columns[i].type);
@@ -1534,8 +1625,49 @@ void SelectValues::accept(){
     while(n>0&&is[n]>=ns[n]){
       is[n]=0;
       is[--n]++;
+      if(is[n]<ns[n]){
+        for(int i=0;i<wheres.size();i++){
+          if(wheres[i].type==WhereItem::OPERATION){
+            //printf("Checking operation\n");
+            if(wheres[i].expr.type==Expr::COL){
+              int place=wheres[i].expr.column.place;
+              int leftref=rfs[wheres[i].left.place];
+              if(place==n&&wheres[i].left.place>n){
+                Value right=extractValue(cols[place][is[place]],wheres[i].expr.column.left+4,wheres[i].expr.column.right+4,wheres[i].expr.column.type);
+                if(rm->hasIndex(leftref,wheres[i].left.left/4+1)){
+                  unsigned int lower,upper;
+                  int val=right.toInt(wheres[i].left.type);
+                  if(wheres[i].Operator==WhereItem::_EQUAL){
+                    lower=val;
+                    upper=val+1;
+                  }
+                  if(wheres[i].Operator==WhereItem::_LESS_OR_EQUAL){
+                    lower=0;
+                    upper=val+1;
+                  }
+                  if(wheres[i].Operator==WhereItem::_MORE_OR_EQUAL){
+                    lower=val;
+                    upper=-1;
+                  }
+                  if(wheres[i].Operator==WhereItem::_LESS){
+                    lower=0;
+                    upper=val;
+                  }
+                  if(wheres[i].Operator==WhereItem::_MORE){
+                    lower=val+1;
+                    upper=-1;
+                  }
+                  cols[wheres[i].left.place]=rm->findbyIndex(leftref,wheres[i].left.left/4+1,lower,upper);
+                  ns[wheres[i].left.place]=cols[wheres[i].left.place].size();
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
+  printf("%u\n",cnt);
 }
 
 void CreateIndex::accept(){

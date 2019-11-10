@@ -23,8 +23,7 @@ CREATE TABLE food(
 	restaurant_id INT(10),
 	name CHAR(100) NOT NULL,
 	price FLOAT NOT NULL,
-	PRIMARY KEY (id),
-	FOREIGN KEY (restaurant_id) REFERENCES restaurant(id)
+	PRIMARY KEY (id)
 );
 
 CREATE TABLE orders(
@@ -33,7 +32,5 @@ CREATE TABLE orders(
 	food_id INT(10) NOT NULL,
 	date DATE,
 	quantity INT(10),
-	PRIMARY KEY (id),
-	FOREIGN KEY (customer_id) REFERENCES customer(id),
-	FOREIGN KEY (food_id) REFERENCES food(id)
+	PRIMARY KEY (id)
 );

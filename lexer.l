@@ -64,11 +64,11 @@ VALUE_STRING '(\\'|[^'])*'
 "<=" {return LESS_OR_EQUAL;}
 ">=" {return MORE_OR_EQUAL;}
 
-{IDENTIFIER}  {identifier(yytext,yylval);return IDENTIFIER;}
+{IDENTIFIER}  {yylval=new semvalue();identifier(yytext,yylval);return IDENTIFIER;}
 
-{VALUE_INT} {intConstant(yytext,yylval);return VALUE_INT;}
+{VALUE_INT} {yylval=new semvalue();intConstant(yytext,yylval);return VALUE_INT;}
 
-{VALUE_STRING} {stringConstant(yytext,yylval);return VALUE_STRING;}
+{VALUE_STRING} {yylval=new semvalue();stringConstant(yytext,yylval);return VALUE_STRING;}
 
 {SIMPLE_OPERATOR} {return yytext[0];}
 
